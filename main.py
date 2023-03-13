@@ -1,75 +1,68 @@
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw
 import random
-import threading
-import math
 
 IMAGE_SIZE = (3456, 2160)
 #IMAGE_SIZE = (300, 300)
 CLOUD_SPAWN_RANGE = (230, 230)
 POINT_RANGE = 500
 STRENGTH = .5
-THREADS = 8
 
 def GenerateImage():
+    # Create the image to be edited.
     image = Image.new("RGB", IMAGE_SIZE)
     draw = ImageDraw.Draw(image)
 
+    # Calculate the number of cells in the image
     numHorizontalSpaces = int(IMAGE_SIZE[0] / CLOUD_SPAWN_RANGE[0])
     numVerticalSpaces = int(IMAGE_SIZE[1] / CLOUD_SPAWN_RANGE[1])
 
+    # Create on random point per cell and add it to an array
     randompoints = []
     for y in range(0, numVerticalSpaces):
         for x in range(0, numHorizontalSpaces):
             randompoints.append((int(random.random() * CLOUD_SPAWN_RANGE[0] + CLOUD_SPAWN_RANGE[0] * x), int(random.random() * CLOUD_SPAWN_RANGE[1] + CLOUD_SPAWN_RANGE[1] * y)))
 
-    #for x, y in randompoints:
-    #    draw.ellipse([(x, y), (x+10, y+10)], fill=(255, 255, 255))
-
+    # Loop over every image pixel left to right top to down
     for y in range(IMAGE_SIZE[1]):
+
+        # Calculate the y cell of the pixel
+        yGridPos = int(y / CLOUD_SPAWN_RANGE[1])
+
         for x in range(IMAGE_SIZE[0]):
+
+            # Calculate the cell that the pixel is located in
+            # Stores the index of the randompoint of the cell in gridPosition
             distanceFromPoints = []
-
-            if (y % 100 == 0):
-                print(y)
-
             xGridPos = int(x / CLOUD_SPAWN_RANGE[0])
-            yGridPos = int(y / CLOUD_SPAWN_RANGE[1])
             gridPosition = xGridPos + yGridPos * numHorizontalSpaces
 
+            # Find the indexes of the surrounding cells
             for i in range(-1, 2):
                 for j in range(-1, 2):
+                    # Prevent the search for the shortest distance from considering cells across the image
                     if xGridPos == 0 and i == -1:
                         continue
                     if xGridPos + 1 % numHorizontalSpaces == 0 and i == 1:
                         continue
 
-                    if 0 <= gridPosition + i + numHorizontalSpaces * j < len(randompoints):
-                        point = randompoints[gridPosition + i + numHorizontalSpaces * j]
+                    # If the cell index is in range, caluclate the distance to the random point
+                    # in that cell and add it to a list
+                    potentialCellIndex = gridPosition + i + numHorizontalSpaces * j
+                    if 0 <= potentialCellIndex < len(randompoints):
+                        point = randompoints[potentialCellIndex]
                         distance = ((x - point[0]) ** 2 + (y - point[1]) ** 2) ** .5
                         distanceFromPoints.append(distance)
 
+            # Get the smallest distance from the list
             bestDistance = min(distanceFromPoints)
 
+            # Make the pixel color concentration inversely scale with the distance to the point
             concentration = int(bestDistance / POINT_RANGE * STRENGTH * 255)
             draw.point((x, y), fill=(concentration, 0, 0))
 
-
+    # Output image
     image.save("output.png")
 
-def generateQuadrant(index, randompoints, draw, verbose):
-    for i in range(int(IMAGE_SIZE[0] / THREADS)):
-        i = i + int(IMAGE_SIZE[0] / THREADS * index)
-        for j in range(IMAGE_SIZE[1]):
-
-            distanceFromPoints = [((a[0] - i) ** 2 + (a[1] - j) ** 2) ** .5 for a in randompoints]
-            distance = min(distanceFromPoints)
-
-            concentration = int((distance / POINT_RANGE) * STRENGTH * 255)
-
-            draw.point((i, j), fill=(concentration, 0, 0))
-    print(f"Thread {index} has completed")
-
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     GenerateImage()
 
